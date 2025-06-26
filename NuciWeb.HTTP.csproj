@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>NuciWeb.HTTP</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Description>HttpClient wrapper</Description>
     <Authors>Horațiu Mlendea</Authors>
     <Copyright>Copyright 2025 © Horațiu Mlendea</Copyright>

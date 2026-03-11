@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Threading;
 
@@ -6,6 +7,8 @@ namespace NuciWeb.HTTP
 {
     public static class NetworkUtils
     {
+        private static readonly HttpClient HttpClient = new();
+
         /// <summary>
         /// Checks if the system has internet access.
         /// </summary>
@@ -22,6 +25,25 @@ namespace NuciWeb.HTTP
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Gets the public IP address of the system by making a request to an external service.
+        /// </summary>
+        /// <returns>The public IP address as a string.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if no internet access is available.</exception>
+        public static string GetPublicIpAddress()
+        {
+            if (!HasInternetAccess())
+            {
+                throw new InvalidOperationException("No internet access available.");
+            }
+
+            return HttpClient
+                .GetStringAsync("https://api.ipify.org")
+                .GetAwaiter()
+                .GetResult()
+                .Trim();
         }
 
         /// <summary>

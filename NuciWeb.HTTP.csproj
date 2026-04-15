@@ -13,4 +13,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="NuciExtensions" Version="5.3.1" />
+  </ItemGroup>
+
 </Project>

@@ -17,3 +17,17 @@ dotnet add package NuciWeb.HTTP
 ```powershell
 Install-Package NuciWeb.HTTP
 ```
+
+# Usage
+
+## Public IP address
+
+`NetworkUtils.GetPublicIpAddress()` uses multiple public IP providers.
+
+On each call, it:
+- Gets the full list of configured providers
+- Randomizes the order
+- Tries each provider one by one
+- Returns the first successful non-empty response
+
+If all providers fail, an `InvalidOperationException` is thrown.

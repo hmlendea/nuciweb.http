@@ -12,12 +12,12 @@ namespace NuciWeb.HTTP
     {
         private static readonly HttpClient HttpClient = new();
         private static readonly string[] PublicIpSources =
-        {
+        [
             "https://api.ipify.org",
-            "https://ifconfig.me/ip",
+            "https://checkip.amazonaws.com",
             "https://icanhazip.com",
-            "https://checkip.amazonaws.com"
-        };
+            "https://ifconfig.me/ip",
+        ];
 
         /// <summary>
         /// Checks if the system has internet access.

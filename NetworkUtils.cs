@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Threading;
@@ -8,6 +9,13 @@ namespace NuciWeb.HTTP
     public static class NetworkUtils
     {
         private static readonly HttpClient HttpClient = new();
+        private static readonly string[] PublicIpSources =
+        {
+            "https://api.ipify.org",
+            "https://ifconfig.me/ip",
+            "https://icanhazip.com",
+            "https://checkip.amazonaws.com"
+        };
 
         /// <summary>
         /// Checks if the system has internet access.
@@ -39,11 +47,40 @@ namespace NuciWeb.HTTP
                 throw new InvalidOperationException("No internet access available.");
             }
 
-            return HttpClient
-                .GetStringAsync("https://api.ipify.org")
-                .GetAwaiter()
-                .GetResult()
-                .Trim();
+            string[] sources = (string[])PublicIpSources.Clone();
+
+            for (int i = sources.Length - 1; i > 0; i--)
+            {
+                int j = Random.Shared.Next(i + 1);
+                (sources[i], sources[j]) = (sources[j], sources[i]);
+            }
+
+            List<Exception> errors = new();
+
+            foreach (string source in sources)
+            {
+                try
+                {
+                    string response = HttpClient
+                        .GetStringAsync(source)
+                        .GetAwaiter()
+                        .GetResult()
+                        .Trim();
+
+                    if (!string.IsNullOrWhiteSpace(response))
+                    {
+                        return response;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(ex);
+                }
+            }
+
+            throw new InvalidOperationException(
+                "Unable to retrieve public IP address from any source.",
+                new AggregateException(errors));
         }
 
         /// <summary>

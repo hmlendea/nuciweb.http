@@ -2,15 +2,50 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Threading;
-
+using System.Threading.Tasks;
 using NuciExtensions;
 
 namespace NuciWeb.HTTP
 {
     public static class NetworkUtils
     {
-        private static readonly HttpClient HttpClient = new();
+        private static readonly HttpClient HttpClient = CreateHttpClient();
+
+        private static readonly string[] PingHosts =
+        [
+            "1.1.1.1",
+            "9.9.9.9",
+            "cloudflare.com",
+            "quad9.net",
+            "wikipedia.org",
+            "eff.org",
+            "torproject.org",
+            "ping.archlinux.org",
+            "ecloud.global"
+        ];
+
+        private static readonly string[] TcpHosts =
+        [
+            "1.1.1.1",
+            "9.9.9.9",
+            "cloudflare.com",
+            "quad9.net",
+            "ping.archlinux.org",
+            "checkonline.home-assistant.io",
+            "ecloud.global"
+        ];
+
+        private static readonly string[] HttpUrls =
+        [
+            "https://cloudflare.com",
+            "https://www.wikipedia.org",
+            "https://www.eff.org",
+            "https://checkonline.home-assistant.io",
+            "https://ping.archlinux.org"
+        ];
+
         private static readonly string[] PublicIpSources =
         [
             "https://api.ipify.org",
@@ -24,17 +59,30 @@ namespace NuciWeb.HTTP
         /// </summary>
         /// <returns>Returns true if internet access is available, otherwise false.</returns>
         public static bool HasInternetAccess()
-        {
-            try
-            {
-                using Ping ping = new();
+            => HasInternetAccessAsync().GetAwaiter().GetResult();
 
-                return ping.Send("mozilla.org", 3000).Status.Equals(IPStatus.Success);
-            }
-            catch
+        /// <summary>
+        /// Checks if the system has internet access asynchronously.
+        /// </summary>
+        /// <returns>Returns true if internet access is available, otherwise false.</returns>
+        public static async Task<bool> HasInternetAccessAsync()
+        {
+            if (await TryPingAsync().ConfigureAwait(false))
             {
-                return false;
+                return true;
             }
+
+            if (await TryTcpAsync().ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            if (await TryHttpAsync().ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -106,6 +154,109 @@ namespace NuciWeb.HTTP
             }
 
             throw new TimeoutException("No internet access after the specified timeout.");
+        }
+
+
+        private static async Task<bool> TryPingAsync()
+        {
+            try
+            {
+                using Ping ping = new();
+
+                foreach (string host in PingHosts)
+                {
+                    try
+                    {
+                        PingReply reply = await ping.SendPingAsync(host, 2000).ConfigureAwait(false);
+
+                        if (reply.Status.Equals(IPStatus.Success))
+                        {
+                            return true;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> TryTcpAsync()
+        {
+            foreach (string host in TcpHosts)
+            {
+                try
+                {
+                    using TcpClient client = new();
+                    using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(2000));
+
+                    await client.ConnectAsync(host, 443, cts.Token).ConfigureAwait(false);
+
+                    if (client.Connected)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> TryHttpAsync()
+        {
+            foreach (string url in HttpUrls)
+            {
+                try
+                {
+                    using HttpRequestMessage request = new(HttpMethod.Head, url);
+                    using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(3000));
+
+                    using HttpResponseMessage response =
+                        await HttpClient.SendAsync(
+                            request,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            cts.Token).ConfigureAwait(false);
+
+                    if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 500)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
+        }
+
+        private static HttpClient CreateHttpClient()
+        {
+            SocketsHttpHandler handler = new()
+            {
+                AllowAutoRedirect = false
+            };
+
+            HttpClient client = new(handler)
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("InternetAccessCheck/1.0");
+
+            return client;
         }
     }
 }

@@ -2,15 +2,50 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Threading;
-
+using System.Threading.Tasks;
 using NuciExtensions;
 
 namespace NuciWeb.HTTP
 {
     public static class NetworkUtils
     {
-        private static readonly HttpClient HttpClient = new();
+        private static readonly HttpClient HttpClient = CreateHttpClient();
+
+        private static readonly string[] PingHosts =
+        [
+            "1.1.1.1",
+            "9.9.9.9",
+            "cloudflare.com",
+            "ecloud.global",
+            "eff.org",
+            "ping.archlinux.org",
+            "quad9.net",
+            "torproject.org",
+            "wikipedia.org",
+        ];
+
+        private static readonly string[] TcpHosts =
+        [
+            "1.1.1.1",
+            "9.9.9.9",
+            "checkonline.home-assistant.io",
+            "cloudflare.com",
+            "ecloud.global",
+            "ping.archlinux.org",
+            "quad9.net",
+        ];
+
+        private static readonly string[] HttpUrls =
+        [
+            "https://checkonline.home-assistant.io",
+            "https://cloudflare.com",
+            "https://eff.org",
+            "https://ping.archlinux.org",
+            "https://wikipedia.org",
+        ];
+
         private static readonly string[] PublicIpSources =
         [
             "https://api.ipify.org",
@@ -24,17 +59,37 @@ namespace NuciWeb.HTTP
         /// </summary>
         /// <returns>Returns true if internet access is available, otherwise false.</returns>
         public static bool HasInternetAccess()
-        {
-            try
-            {
-                using Ping ping = new();
+            => HasInternetAccessAsync().GetAwaiter().GetResult();
 
-                return ping.Send("mozilla.org", 3000).Status.Equals(IPStatus.Success);
-            }
-            catch
+        /// <summary>
+        /// Checks if the system has internet access asynchronously.
+        /// </summary>
+        /// <returns>Returns true if internet access is available, otherwise false.</returns>
+        public static async Task<bool> HasInternetAccessAsync()
+        {
+            using CancellationTokenSource cts = new();
+
+            List<Task<bool>> checks =
+            [
+                TryTcpAsync(cts.Token),
+                TryHttpAsync(cts.Token),
+                TryPingAsync(cts.Token),
+            ];
+
+            while (checks.Count > 0)
             {
-                return false;
+                Task<bool> completedCheck = await Task.WhenAny(checks).ConfigureAwait(false);
+
+                if (await completedCheck.ConfigureAwait(false))
+                {
+                    cts.Cancel();
+                    return true;
+                }
+
+                checks.Remove(completedCheck);
             }
+
+            return false;
         }
 
         /// <summary>
@@ -106,6 +161,149 @@ namespace NuciWeb.HTTP
             }
 
             throw new TimeoutException("No internet access after the specified timeout.");
+        }
+
+
+        private static async Task<bool> TryPingAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                using Ping ping = new();
+
+                foreach (string host in PingHosts)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
+                    try
+                    {
+                        PingReply reply = await ping
+                            .SendPingAsync(host, 2000)
+                            .WaitAsync(cancellationToken)
+                            .ConfigureAwait(false);
+
+                        if (reply.Status.Equals(IPStatus.Success))
+                        {
+                            return true;
+                        }
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+                    catch
+                    {
+                        // Ignore
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+            catch
+            {
+                // Ignore
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> TryTcpAsync(CancellationToken cancellationToken)
+        {
+            foreach (string host in TcpHosts)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    using TcpClient client = new();
+                    using CancellationTokenSource cts =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                    cts.CancelAfter(TimeSpan.FromMilliseconds(2000));
+
+                    await client.ConnectAsync(host, 443, cts.Token).ConfigureAwait(false);
+
+                    if (client.Connected)
+                    {
+                        return true;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
+        {
+            foreach (string url in HttpUrls)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    using HttpRequestMessage request = new(HttpMethod.Head, url);
+                    using CancellationTokenSource cts =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                    cts.CancelAfter(TimeSpan.FromMilliseconds(3000));
+
+                    using HttpResponseMessage response =
+                        await HttpClient.SendAsync(
+                            request,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            cts.Token).ConfigureAwait(false);
+
+                    if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 500)
+                    {
+                        return true;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
+        }
+
+        private static HttpClient CreateHttpClient()
+        {
+            SocketsHttpHandler handler = new()
+            {
+                AllowAutoRedirect = false
+            };
+
+            HttpClient client = new(handler)
+            {
+                Timeout = Timeout.InfiniteTimeSpan
+            };
+
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("InternetAccessCheck/1.0");
+
+            return client;
         }
     }
 }

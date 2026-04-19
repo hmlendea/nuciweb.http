@@ -18,32 +18,32 @@ namespace NuciWeb.HTTP
             "1.1.1.1",
             "9.9.9.9",
             "cloudflare.com",
-            "quad9.net",
-            "wikipedia.org",
+            "ecloud.global",
             "eff.org",
-            "torproject.org",
             "ping.archlinux.org",
-            "ecloud.global"
+            "quad9.net",
+            "torproject.org",
+            "wikipedia.org",
         ];
 
         private static readonly string[] TcpHosts =
         [
             "1.1.1.1",
             "9.9.9.9",
-            "cloudflare.com",
-            "quad9.net",
-            "ping.archlinux.org",
             "checkonline.home-assistant.io",
-            "ecloud.global"
+            "cloudflare.com",
+            "ecloud.global",
+            "ping.archlinux.org",
+            "quad9.net",
         ];
 
         private static readonly string[] HttpUrls =
         [
-            "https://cloudflare.com",
-            "https://www.wikipedia.org",
-            "https://www.eff.org",
             "https://checkonline.home-assistant.io",
-            "https://ping.archlinux.org"
+            "https://cloudflare.com",
+            "https://eff.org",
+            "https://ping.archlinux.org",
+            "https://wikipedia.org",
         ];
 
         private static readonly string[] PublicIpSources =

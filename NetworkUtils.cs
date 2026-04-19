@@ -67,17 +67,17 @@ namespace NuciWeb.HTTP
         /// <returns>Returns true if internet access is available, otherwise false.</returns>
         public static async Task<bool> HasInternetAccessAsync()
         {
-            if (await TryPingAsync().ConfigureAwait(false))
-            {
-                return true;
-            }
-
             if (await TryTcpAsync().ConfigureAwait(false))
             {
                 return true;
             }
 
             if (await TryHttpAsync().ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            if (await TryPingAsync().ConfigureAwait(false))
             {
                 return true;
             }

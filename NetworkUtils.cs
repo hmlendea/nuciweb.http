@@ -67,19 +67,26 @@ namespace NuciWeb.HTTP
         /// <returns>Returns true if internet access is available, otherwise false.</returns>
         public static async Task<bool> HasInternetAccessAsync()
         {
-            if (await TryTcpAsync().ConfigureAwait(false))
-            {
-                return true;
-            }
+            using CancellationTokenSource cts = new();
 
-            if (await TryHttpAsync().ConfigureAwait(false))
-            {
-                return true;
-            }
+            List<Task<bool>> checks =
+            [
+                TryTcpAsync(cts.Token),
+                TryHttpAsync(cts.Token),
+                TryPingAsync(cts.Token),
+            ];
 
-            if (await TryPingAsync().ConfigureAwait(false))
+            while (checks.Count > 0)
             {
-                return true;
+                Task<bool> completedCheck = await Task.WhenAny(checks).ConfigureAwait(false);
+
+                if (await completedCheck.ConfigureAwait(false))
+                {
+                    cts.Cancel();
+                    return true;
+                }
+
+                checks.Remove(completedCheck);
             }
 
             return false;
@@ -157,7 +164,7 @@ namespace NuciWeb.HTTP
         }
 
 
-        private static async Task<bool> TryPingAsync()
+        private static async Task<bool> TryPingAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -165,20 +172,36 @@ namespace NuciWeb.HTTP
 
                 foreach (string host in PingHosts)
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+
                     try
                     {
-                        PingReply reply = await ping.SendPingAsync(host, 2000).ConfigureAwait(false);
+                        PingReply reply = await ping
+                            .SendPingAsync(host, 2000)
+                            .WaitAsync(cancellationToken)
+                            .ConfigureAwait(false);
 
                         if (reply.Status.Equals(IPStatus.Success))
                         {
                             return true;
                         }
                     }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
                     catch
                     {
                         // Ignore
                     }
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return false;
             }
             catch
             {
@@ -188,14 +211,22 @@ namespace NuciWeb.HTTP
             return false;
         }
 
-        private static async Task<bool> TryTcpAsync()
+        private static async Task<bool> TryTcpAsync(CancellationToken cancellationToken)
         {
             foreach (string host in TcpHosts)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
                 try
                 {
                     using TcpClient client = new();
-                    using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(2000));
+                    using CancellationTokenSource cts =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                    cts.CancelAfter(TimeSpan.FromMilliseconds(2000));
 
                     await client.ConnectAsync(host, 443, cts.Token).ConfigureAwait(false);
 
@@ -203,6 +234,10 @@ namespace NuciWeb.HTTP
                     {
                         return true;
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
                 }
                 catch
                 {
@@ -213,14 +248,22 @@ namespace NuciWeb.HTTP
             return false;
         }
 
-        private static async Task<bool> TryHttpAsync()
+        private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
         {
             foreach (string url in HttpUrls)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
                 try
                 {
                     using HttpRequestMessage request = new(HttpMethod.Head, url);
-                    using CancellationTokenSource cts = new(TimeSpan.FromMilliseconds(3000));
+                    using CancellationTokenSource cts =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                    cts.CancelAfter(TimeSpan.FromMilliseconds(3000));
 
                     using HttpResponseMessage response =
                         await HttpClient.SendAsync(
@@ -232,6 +275,10 @@ namespace NuciWeb.HTTP
                     {
                         return true;
                     }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
                 }
                 catch
                 {

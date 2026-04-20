@@ -15,7 +15,7 @@ namespace NuciWeb.HTTP
     {
         private static readonly HttpClient HttpClient = CreateHttpClient();
 
-        private static readonly string[] PingHosts =
+        private static readonly List<string> PingHosts =
         [
             "1.1.1.1",
             "9.9.9.9",
@@ -28,7 +28,7 @@ namespace NuciWeb.HTTP
             "wikipedia.org",
         ];
 
-        private static readonly string[] TcpHosts =
+        private static readonly List<string> TcpHosts =
         [
             "1.1.1.1",
             "9.9.9.9",
@@ -39,7 +39,7 @@ namespace NuciWeb.HTTP
             "quad9.net",
         ];
 
-        private static readonly string[] HttpUrls =
+        private static readonly List<string> HttpUrls =
         [
             "https://checkonline.home-assistant.io",
             "https://cloudflare.com",
@@ -48,7 +48,7 @@ namespace NuciWeb.HTTP
             "https://wikipedia.org",
         ];
 
-        private static readonly string[] PublicIpSources =
+        private static readonly List<string> PublicIpSources =
         [
             "https://api.ipify.org",
             "https://checkip.amazonaws.com",
@@ -107,10 +107,8 @@ namespace NuciWeb.HTTP
             }
 
             List<Exception> errors = [];
-            string[] sources = (string[])PublicIpSources.Clone();
-            sources.Shuffle();
 
-            foreach (string source in sources)
+            foreach (string source in PublicIpSources.Shuffle())
             {
                 try
                 {
@@ -217,7 +215,7 @@ namespace NuciWeb.HTTP
             {
                 using Ping ping = new();
 
-                foreach (string host in PingHosts)
+                foreach (string host in PingHosts.Shuffle())
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
@@ -260,7 +258,7 @@ namespace NuciWeb.HTTP
 
         private static async Task<bool> TryTcpAsync(CancellationToken cancellationToken)
         {
-            foreach (string host in TcpHosts)
+            foreach (string host in TcpHosts.Shuffle())
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -297,7 +295,7 @@ namespace NuciWeb.HTTP
 
         private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
         {
-            foreach (string url in HttpUrls)
+            foreach (string url in HttpUrls.Shuffle())
             {
                 if (cancellationToken.IsCancellationRequested)
                 {

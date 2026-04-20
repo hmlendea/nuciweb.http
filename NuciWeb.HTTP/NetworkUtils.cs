@@ -146,7 +146,16 @@ namespace NuciWeb.HTTP
         {
             ArgumentNullException.ThrowIfNull(ipAddress);
 
-            IPHostEntry hostEntry = Dns.GetHostEntry(ipAddress);
+            IPHostEntry hostEntry;
+
+            try
+            {
+                hostEntry = Dns.GetHostEntry(ipAddress);
+            }
+            catch (SocketException)
+            {
+                return [];
+            }
 
             return [
                 .. new[] { hostEntry.HostName }

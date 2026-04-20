@@ -22,6 +22,15 @@ public class NetworkUtilsTests
     }
 
     [Test]
+    [TestCase("192.0.2.123")]
+    public void GivenNonResolvableIpAddress_WhenGetHostnames_ThenReturnsEmptyCollection(string ipAddress)
+    {
+        List<string> hostnames = NetworkUtils.GetHostnames(IPAddress.Parse(ipAddress));
+
+        Assert.That(hostnames, Is.Empty);
+    }
+
+    [Test]
     public void GivenInvalidIpAddressString_WhenGetHostnames_ThenThrowsArgumentException()
     {
         ArgumentException exception = Assert.Throws<ArgumentException>(() => NetworkUtils.GetHostnames("not-an-ip"))!;

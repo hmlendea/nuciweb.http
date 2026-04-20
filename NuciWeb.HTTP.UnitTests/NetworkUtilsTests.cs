@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading;
@@ -10,6 +13,65 @@ namespace NuciWeb.HTTP.UnitTests;
 [TestFixture]
 public class NetworkUtilsTests
 {
+    [Test]
+    public void GivenNullIpAddress_WhenGetHostnames_ThenThrowsArgumentNullException()
+    {
+        ArgumentNullException exception = Assert.Throws<ArgumentNullException>(() => NetworkUtils.GetHostnames((IPAddress)null!))!;
+
+        Assert.That(exception.ParamName, Is.EqualTo("ipAddress"));
+    }
+
+    [Test]
+    [TestCase("192.0.2.123")]
+    public void GivenNonResolvableIpAddress_WhenGetHostnames_ThenReturnsEmptyCollection(string ipAddress)
+    {
+        List<string> hostnames = NetworkUtils.GetHostnames(IPAddress.Parse(ipAddress));
+
+        Assert.That(hostnames, Is.Empty);
+    }
+
+    [Test]
+    public void GivenInvalidIpAddressString_WhenGetHostnames_ThenThrowsArgumentException()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => NetworkUtils.GetHostnames("not-an-ip"))!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.ParamName, Is.EqualTo("ipAddress"));
+            Assert.That(exception.Message, Does.Contain("not a valid IP address"));
+        });
+    }
+
+    [Test]
+    public void GivenEquivalentIpInputs_WhenGetHostnames_ThenReturnsSameResults()
+    {
+        IPAddress loopback = IPAddress.Loopback;
+
+        List<string> hostnamesFromIp = NetworkUtils.GetHostnames(loopback);
+        List<string> hostnamesFromString = NetworkUtils.GetHostnames(loopback.ToString());
+
+        Assert.That(hostnamesFromString, Is.EquivalentTo(hostnamesFromIp));
+    }
+
+    [Test]
+    public void GivenLoopbackIp_WhenGetHostnames_ThenMatchesDnsTransformation()
+    {
+        IPAddress loopback = IPAddress.Loopback;
+
+        IPHostEntry hostEntry = Dns.GetHostEntry(loopback);
+        List<string> expected =
+        [
+            .. new[] { hostEntry.HostName }
+                .Concat(hostEntry.Aliases)
+                .Where(hostname => !string.IsNullOrWhiteSpace(hostname))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+        ];
+
+        List<string> actual = NetworkUtils.GetHostnames(loopback);
+
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
     [Test]
     public void GivenZeroTimeout_WhenWaitForInternetAccess_ThenThrowsTimeoutException()
         => Assert.Throws<TimeoutException>(() => NetworkUtils.WaitForInternetAccess(TimeSpan.Zero));

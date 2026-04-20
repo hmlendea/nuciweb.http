@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -132,6 +134,42 @@ namespace NuciWeb.HTTP
             throw new InvalidOperationException(
                 "Unable to retrieve the public IP address from any source.",
                 new AggregateException(errors));
+        }
+
+        /// <summary>
+        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
+        /// </summary>
+        /// <param name="ipAddress">The IP address to resolve.</param>
+        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="ipAddress"/> is null.</exception>
+        public static List<string> GetHostnames(IPAddress ipAddress)
+        {
+            ArgumentNullException.ThrowIfNull(ipAddress);
+
+            IPHostEntry hostEntry = Dns.GetHostEntry(ipAddress);
+
+            return [
+                .. new[] { hostEntry.HostName }
+                    .Concat(hostEntry.Aliases)
+                    .Where(hostname => !string.IsNullOrWhiteSpace(hostname))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+            ];
+        }
+
+        /// <summary>
+        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
+        /// </summary>
+        /// <param name="ipAddress">The IP address to resolve.</param>
+        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="ipAddress"/> is not a valid IP address.</exception>
+        public static List<string> GetHostnames(string ipAddress)
+        {
+            if (!IPAddress.TryParse(ipAddress, out IPAddress parsedIpAddress))
+            {
+                throw new ArgumentException("The provided value is not a valid IP address.", nameof(ipAddress));
+            }
+
+            return GetHostnames(parsedIpAddress);
         }
 
         /// <summary>

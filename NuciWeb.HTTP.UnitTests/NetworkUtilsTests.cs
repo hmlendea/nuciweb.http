@@ -64,7 +64,7 @@ public class NetworkUtilsTests
     private static async Task<bool> InvokePrivateNetworkCheckAsync(string methodName, CancellationToken cancellationToken)
     {
         MethodInfo method = typeof(NetworkUtils).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
-        Task<bool> task = (Task<bool>)method.Invoke(null, new object[] { cancellationToken })!;
+        Task<bool> task = (Task<bool>)method.Invoke(null, [cancellationToken])!;
 
         return await task;
     }

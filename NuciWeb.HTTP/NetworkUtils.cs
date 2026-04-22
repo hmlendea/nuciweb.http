@@ -172,9 +172,18 @@ namespace NuciWeb.HTTP
         private static readonly List<string> PublicIpSources =
         [
             "https://api.ipify.org",
+            "https://api64.ipify.org",
             "https://checkip.amazonaws.com",
             "https://icanhazip.com",
+            "https://ident.me",
             "https://ifconfig.me/ip",
+            "https://ifconfig.co/ip",
+            "https://ipecho.net/plain",
+            "https://ipinfo.io/ip",
+            "https://ip.sb",
+            "https://myexternalip.com/raw",
+            "https://v4.ident.me",
+            "https://wtfismyip.com/text",
         ];
 
         /// <summary>

@@ -125,7 +125,6 @@ public class NetworkUtilsTests
 
     [Test]
     [TestCase("203.0.113.7", "203.0.113.7")]
-    [TestCase("  2001:db8::1  ", "2001:db8::1")]
     public void GivenValidIpResponse_WhenTryNormalizePublicIpAddress_ThenReturnsTrue(string response, string expectedIp)
     {
         MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalizePublicIpAddress", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -144,6 +143,7 @@ public class NetworkUtilsTests
     [TestCase("")]
     [TestCase("   ")]
     [TestCase("not-an-ip")]
+    [TestCase("2001:db8::1")]
     [TestCase("203.0.113.5 extra")]
     [TestCase("<html>203.0.113.5</html>")]
     public void GivenInvalidIpResponse_WhenTryNormalizePublicIpAddress_ThenReturnsFalse(string response)

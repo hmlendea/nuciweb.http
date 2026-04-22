@@ -171,8 +171,7 @@ namespace NuciWeb.HTTP
 
         private static readonly List<string> PublicIpSources =
         [
-            "https://api.ipify.org",
-            "https://api64.ipify.org",
+            "https://api4.ipify.org",
             "https://api.my-ip.io/ip",
             "https://bot.whatismyipaddress.com",
             "https://checkip.amazonaws.com",
@@ -187,10 +186,8 @@ namespace NuciWeb.HTTP
             "https://ipinfo.io/ip",
             "https://ip.sb",
             "https://ipv4.icanhazip.com",
-            "https://ipv6.icanhazip.com",
             "https://myip.wtf/text",
             "https://myexternalip.com/raw",
-            "https://v6.ident.me",
             "https://v4.ident.me",
             "https://wtfismyip.com/text",
         ];
@@ -284,6 +281,11 @@ namespace NuciWeb.HTTP
             string candidate = response.Trim();
 
             if (!IPAddress.TryParse(candidate, out IPAddress parsedIpAddress))
+            {
+                return false;
+            }
+
+            if (parsedIpAddress.AddressFamily != AddressFamily.InterNetwork)
             {
                 return false;
             }

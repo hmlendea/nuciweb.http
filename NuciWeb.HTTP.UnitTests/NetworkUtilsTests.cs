@@ -123,6 +123,43 @@ public class NetworkUtilsTests
         });
     }
 
+    [Test]
+    [TestCase("203.0.113.7", "203.0.113.7")]
+    public void GivenValidIpResponse_WhenTryNormalizePublicIpAddress_ThenReturnsTrue(string response, string expectedIp)
+    {
+        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalizePublicIpAddress", BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] parameters = [response, null];
+
+        bool isValid = (bool)method.Invoke(null, parameters)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(isValid, Is.True);
+            Assert.That(parameters[1], Is.EqualTo(expectedIp));
+        });
+    }
+
+    [Test]
+    [TestCase("")]
+    [TestCase("   ")]
+    [TestCase("not-an-ip")]
+    [TestCase("2001:db8::1")]
+    [TestCase("203.0.113.5 extra")]
+    [TestCase("<html>203.0.113.5</html>")]
+    public void GivenInvalidIpResponse_WhenTryNormalizePublicIpAddress_ThenReturnsFalse(string response)
+    {
+        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalizePublicIpAddress", BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] parameters = [response, null];
+
+        bool isValid = (bool)method.Invoke(null, parameters)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(isValid, Is.False);
+            Assert.That(parameters[1], Is.EqualTo(string.Empty));
+        });
+    }
+
     private static async Task<bool> InvokePrivateNetworkCheckAsync(string methodName, CancellationToken cancellationToken)
     {
         MethodInfo method = typeof(NetworkUtils).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;

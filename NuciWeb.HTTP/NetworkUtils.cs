@@ -18,42 +18,191 @@ namespace NuciWeb.HTTP
         private static readonly List<string> PingHosts =
         [
             "1.1.1.1",
+            "1.0.0.1",
             "9.9.9.9",
+            "149.112.112.112",
+            "94.140.14.14",
+            "94.140.15.15",
+            "89.233.43.71",
+            "91.239.100.100",
+            "185.95.218.42",
+            "185.95.218.43",
+            "185.228.168.9",
+            "185.228.169.9",
+            "194.242.2.2",
+            "194.242.2.3",
+            "193.110.81.0",
+            "185.253.5.0",
+            "76.76.2.0",
+            "76.76.10.0",
+            "149.154.159.92",
             "cloudflare.com",
+            "bitwarden.com",
+            "discourse.privacyguides.net",
+            "disroot.org",
+            "debian.org",
+            "duckduckgo.com",
             "ecloud.global",
+            "epic.org",
             "eff.org",
+            "fdroid.org",
+            "fsf.org",
+            "fsfe.org",
+            "gnu.org",
+            "infomaniak.com",
+            "ivpn.net",
+            "libreoffice.org",
+            "mailbox.org",
+            "matrix.org",
+            "mozilla.org",
+            "mullvad.net",
+            "nixos.org",
+            "noyb.eu",
+            "privacyinternational.org",
+            "posteo.de",
+            "proton.me",
+            "openstreetmap.org",
             "ping.archlinux.org",
+            "privacyguides.org",
             "quad9.net",
+            "riseup.net",
+            "signal.org",
             "torproject.org",
+            "tuta.com",
+            "wikimedia.org",
             "wikipedia.org",
         ];
 
         private static readonly List<string> TcpHosts =
         [
             "1.1.1.1",
+            "1.0.0.1",
             "9.9.9.9",
+            "149.112.112.112",
+            "94.140.14.14",
+            "94.140.15.15",
+            "89.233.43.71",
+            "91.239.100.100",
+            "185.95.218.42",
+            "185.95.218.43",
+            "185.228.168.9",
+            "185.228.169.9",
+            "194.242.2.2",
+            "194.242.2.3",
+            "193.110.81.0",
+            "185.253.5.0",
+            "76.76.2.0",
+            "76.76.10.0",
+            "149.154.159.92",
             "checkonline.home-assistant.io",
             "cloudflare.com",
+            "bitwarden.com",
+            "discourse.privacyguides.net",
+            "disroot.org",
+            "debian.org",
+            "duckduckgo.com",
             "ecloud.global",
+            "epic.org",
+            "fsf.org",
+            "fdroid.org",
+            "fsfe.org",
+            "gnu.org",
+            "infomaniak.com",
+            "ivpn.net",
+            "libreoffice.org",
+            "mailbox.org",
+            "matrix.org",
+            "mozilla.org",
+            "mullvad.net",
+            "nixos.org",
+            "noyb.eu",
+            "privacyinternational.org",
+            "posteo.de",
+            "proton.me",
+            "openstreetmap.org",
             "ping.archlinux.org",
+            "privacyguides.org",
             "quad9.net",
+            "riseup.net",
+            "signal.org",
+            "torproject.org",
+            "tuta.com",
+            "wikimedia.org",
         ];
 
         private static readonly List<string> HttpUrls =
         [
             "https://checkonline.home-assistant.io",
+            "https://bitwarden.com",
+            "https://codeberg.org",
             "https://cloudflare.com",
+            "https://discourse.privacyguides.net",
+            "https://disroot.org",
+            "https://debian.org",
+            "https://duckduckgo.com",
+            "https://epic.org",
             "https://eff.org",
+            "https://fdroid.org",
+            "https://fsf.org",
+            "https://fsfe.org",
+            "https://gnu.org",
+            "https://infomaniak.com",
+            "https://ivpn.net",
+            "https://libreoffice.org",
+            "https://mailbox.org",
+            "https://matrix.org",
+            "https://mozilla.org",
+            "https://mullvad.net",
+            "https://nixos.org",
+            "https://noyb.eu",
+            "https://privacyinternational.org",
+            "https://posteo.de",
+            "https://proton.me",
+            "https://openstreetmap.org",
             "https://ping.archlinux.org",
+            "https://privacyguides.org",
+            "https://riseup.net",
+            "https://signal.org",
+            "https://torproject.org",
+            "https://tuta.com",
+            "https://wikimedia.org",
             "https://wikipedia.org",
         ];
 
         private static readonly List<string> PublicIpSources =
         [
+            "https://4.ident.me",
+            "https://am.i.mullvad.net/ip",
+            "https://api-ipv4.ip.sb/ip",
+            "https://api.ip.sb/ip",
             "https://api.ipify.org",
+            "https://api.my-ip.io/ip",
+            "https://api4.ipify.org",
+            "https://bot.whatismyipaddress.com",
             "https://checkip.amazonaws.com",
             "https://icanhazip.com",
+            "https://ident.me",
+            "https://ifconfig.co/ip",
+            "https://ifconfig.eu",
+            "https://ifconfig.io/ip",
             "https://ifconfig.me/ip",
+            "https://ip.sb",
+            "https://ip.seeip.org",
+            "https://ip.tyk.nu",
+            "https://ipecho.io/plain",
+            "https://ipecho.net/plain",
+            "https://ipinfo.io/ip",
+            "https://ipv4.icanhazip.com",
+            "https://ipv4.seeip.org",
+            "https://ipv4bot.whatismyipaddress.com",
+            "https://l2.io/ip",
+            "https://myexternalip.com/raw",
+            "https://myip.dnsomatic.com",
+            "https://myip.wtf/text",
+            "https://v4.ident.me",
+            "https://v4.ifconfig.co/ip",
+            "https://whatismyip.akamai.com",
+            "https://wtfismyip.com/text",
         ];
 
         /// <summary>
@@ -115,12 +264,11 @@ namespace NuciWeb.HTTP
                     string response = HttpClient
                         .GetStringAsync(source)
                         .GetAwaiter()
-                        .GetResult()
-                        .Trim();
+                        .GetResult();
 
-                    if (!string.IsNullOrWhiteSpace(response))
+                    if (TryNormalizePublicIpAddress(response, out string publicIpAddress))
                     {
-                        return response;
+                        return publicIpAddress;
                     }
                 }
                 catch (Exception ex)
@@ -132,6 +280,32 @@ namespace NuciWeb.HTTP
             throw new InvalidOperationException(
                 "Unable to retrieve the public IP address from any source.",
                 new AggregateException(errors));
+        }
+
+        private static bool TryNormalizePublicIpAddress(string response, out string publicIpAddress)
+        {
+            publicIpAddress = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return false;
+            }
+
+            string candidate = response.Trim();
+
+            if (!IPAddress.TryParse(candidate, out IPAddress parsedIpAddress))
+            {
+                return false;
+            }
+
+            if (parsedIpAddress.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return false;
+            }
+
+            publicIpAddress = parsedIpAddress.ToString();
+
+            return true;
         }
 
         /// <summary>

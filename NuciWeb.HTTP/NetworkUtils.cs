@@ -18,11 +18,16 @@ namespace NuciWeb.HTTP
         private static readonly List<string> PingHosts =
         [
             "1.1.1.1",
+            "1.0.0.1",
             "9.9.9.9",
+            "149.112.112.112",
             "cloudflare.com",
+            "debian.org",
             "ecloud.global",
             "eff.org",
+            "fsf.org",
             "ping.archlinux.org",
+            "privacyguides.org",
             "quad9.net",
             "torproject.org",
             "wikipedia.org",
@@ -31,20 +36,30 @@ namespace NuciWeb.HTTP
         private static readonly List<string> TcpHosts =
         [
             "1.1.1.1",
+            "1.0.0.1",
             "9.9.9.9",
+            "149.112.112.112",
             "checkonline.home-assistant.io",
             "cloudflare.com",
+            "debian.org",
             "ecloud.global",
+            "fsf.org",
             "ping.archlinux.org",
+            "privacyguides.org",
             "quad9.net",
+            "torproject.org",
         ];
 
         private static readonly List<string> HttpUrls =
         [
             "https://checkonline.home-assistant.io",
             "https://cloudflare.com",
+            "https://debian.org",
             "https://eff.org",
+            "https://fsf.org",
             "https://ping.archlinux.org",
+            "https://privacyguides.org",
+            "https://torproject.org",
             "https://wikipedia.org",
         ];
 

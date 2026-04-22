@@ -245,12 +245,11 @@ namespace NuciWeb.HTTP
                     string response = HttpClient
                         .GetStringAsync(source)
                         .GetAwaiter()
-                        .GetResult()
-                        .Trim();
+                        .GetResult();
 
-                    if (!string.IsNullOrWhiteSpace(response))
+                    if (TryNormalizePublicIpAddress(response, out string publicIpAddress))
                     {
-                        return response;
+                        return publicIpAddress;
                     }
                 }
                 catch (Exception ex)
@@ -262,6 +261,27 @@ namespace NuciWeb.HTTP
             throw new InvalidOperationException(
                 "Unable to retrieve the public IP address from any source.",
                 new AggregateException(errors));
+        }
+
+        private static bool TryNormalizePublicIpAddress(string response, out string publicIpAddress)
+        {
+            publicIpAddress = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(response))
+            {
+                return false;
+            }
+
+            string candidate = response.Trim();
+
+            if (!IPAddress.TryParse(candidate, out IPAddress parsedIpAddress))
+            {
+                return false;
+            }
+
+            publicIpAddress = parsedIpAddress.ToString();
+
+            return true;
         }
 
         /// <summary>

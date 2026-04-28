@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -14,6 +15,8 @@ namespace NuciWeb.HTTP
     public static class NetworkUtils
     {
         private static readonly HttpClient HttpClient = CreateHttpClient();
+        private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(60);
+        private static readonly ConcurrentDictionary<string, CacheEntry> Cache = new();
 
         private static readonly List<string> PingHosts =
         [
@@ -205,6 +208,8 @@ namespace NuciWeb.HTTP
             "https://wtfismyip.com/text",
         ];
 
+        private sealed record CacheEntry(object Value, DateTimeOffset ExpiresAt);
+
         /// <summary>
         /// Checks if the system has internet access.
         /// </summary>
@@ -249,6 +254,71 @@ namespace NuciWeb.HTTP
         /// <returns>The public IP address as a string.</returns>
         /// <exception cref="InvalidOperationException">Thrown if no internet access is available.</exception>
         public static string GetPublicIpAddress()
+            => GetOrCreateCachedValue("public-ip-address", RetrievePublicIpAddress);
+
+        /// <summary>
+        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
+        /// </summary>
+        /// <param name="ipAddress">The IP address to resolve.</param>
+        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="ipAddress"/> is null.</exception>
+        public static List<string> GetHostnames(IPAddress ipAddress)
+        {
+            ArgumentNullException.ThrowIfNull(ipAddress);
+
+            string[] cachedHostnames = GetOrCreateCachedValue(
+                $"hostnames:{ipAddress}",
+                () => ResolveHostnames(ipAddress).ToArray());
+
+            return [.. cachedHostnames];
+        }
+
+        /// <summary>
+        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
+        /// </summary>
+        /// <param name="ipAddress">The IP address to resolve.</param>
+        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="ipAddress"/> is not a valid IP address.</exception>
+        public static List<string> GetHostnames(string ipAddress)
+        {
+            if (!IPAddress.TryParse(ipAddress, out IPAddress parsedIpAddress))
+            {
+                throw new ArgumentException("The provided value is not a valid IP address.", nameof(ipAddress));
+            }
+
+            return GetHostnames(parsedIpAddress);
+        }
+
+        /// <summary>
+        /// Waits for internet access to be available, with a default timeout of 30 seconds.
+        /// </summary>
+        /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
+        public static void WaitForInternetAccess()
+            => WaitForInternetAccess(TimeSpan.FromSeconds(30));
+
+        /// <summary>
+        /// Waits for internet access to be available.
+        /// </summary>
+        /// <param name="timeout">The maximum time to wait for internet access.</param>
+        /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
+        public static void WaitForInternetAccess(TimeSpan timeout)
+        {
+            DateTime beginningDT = DateTime.Now;
+
+            while (DateTime.Now < beginningDT + timeout)
+            {
+                if (HasInternetAccess())
+                {
+                    return;
+                }
+
+                Thread.Sleep(1000);
+            }
+
+            throw new TimeoutException("No internet access after the specified timeout.");
+        }
+
+        private static string RetrievePublicIpAddress()
         {
             if (!HasInternetAccess())
             {
@@ -308,16 +378,8 @@ namespace NuciWeb.HTTP
             return true;
         }
 
-        /// <summary>
-        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
-        /// </summary>
-        /// <param name="ipAddress">The IP address to resolve.</param>
-        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
-        /// <exception cref="ArgumentNullException">Thrown if <paramref name="ipAddress"/> is null.</exception>
-        public static List<string> GetHostnames(IPAddress ipAddress)
+        private static List<string> ResolveHostnames(IPAddress ipAddress)
         {
-            ArgumentNullException.ThrowIfNull(ipAddress);
-
             IPHostEntry hostEntry;
 
             try
@@ -337,51 +399,25 @@ namespace NuciWeb.HTTP
             ];
         }
 
-        /// <summary>
-        /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
-        /// </summary>
-        /// <param name="ipAddress">The IP address to resolve.</param>
-        /// <returns>A list containing the primary hostname and aliases, if available.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="ipAddress"/> is not a valid IP address.</exception>
-        public static List<string> GetHostnames(string ipAddress)
+        private static T GetOrCreateCachedValue<T>(string cacheKey, Func<T> valueFactory)
         {
-            if (!IPAddress.TryParse(ipAddress, out IPAddress parsedIpAddress))
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            if (Cache.TryGetValue(cacheKey, out CacheEntry cachedEntry)
+                && cachedEntry.ExpiresAt > now)
             {
-                throw new ArgumentException("The provided value is not a valid IP address.", nameof(ipAddress));
+                return (T)cachedEntry.Value;
             }
 
-            return GetHostnames(parsedIpAddress);
-        }
+            T value = valueFactory();
 
-        /// <summary>
-        /// Waits for internet access to be available, with a default timeout of 30 seconds.
-        /// </summary>
-        /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
-        public static void WaitForInternetAccess()
-            => WaitForInternetAccess(TimeSpan.FromSeconds(30));
-
-        /// <summary>
-        /// Waits for internet access to be available.
-        /// </summary>
-        /// <param name="timeout">The maximum time to wait for internet access.</param>
-        /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
-        public static void WaitForInternetAccess(TimeSpan timeout)
-        {
-            DateTime beginningDT = DateTime.Now;
-
-            while (DateTime.Now < beginningDT + timeout)
+            if (value is not null)
             {
-                if (HasInternetAccess())
-                {
-                    return;
-                }
-
-                Thread.Sleep(1000);
+                Cache[cacheKey] = new CacheEntry(value, now.Add(CacheDuration));
             }
 
-            throw new TimeoutException("No internet access after the specified timeout.");
+            return value;
         }
-
 
         private static async Task<bool> TryPingAsync(CancellationToken cancellationToken)
         {

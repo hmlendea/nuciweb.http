@@ -15,7 +15,8 @@ namespace NuciWeb.HTTP
     public static class NetworkUtils
     {
         private static readonly HttpClient HttpClient = CreateHttpClient();
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(60);
+        private static readonly TimeSpan ReverseLookupCacheDuration = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan PublicIpAddressCacheDuration = TimeSpan.FromMinutes(2);
         private static readonly ConcurrentDictionary<string, CacheEntry> Cache = new();
 
         private static readonly List<string> PingHosts =
@@ -254,7 +255,10 @@ namespace NuciWeb.HTTP
         /// <returns>The public IP address as a string.</returns>
         /// <exception cref="InvalidOperationException">Thrown if no internet access is available.</exception>
         public static string GetPublicIpAddress()
-            => GetOrCreateCachedValue("public-ip-address", RetrievePublicIpAddress);
+            => GetOrCreateCachedValue(
+                "public-ip-address",
+                PublicIpAddressCacheDuration,
+                RetrievePublicIpAddress);
 
         /// <summary>
         /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
@@ -268,6 +272,7 @@ namespace NuciWeb.HTTP
 
             string[] cachedHostnames = GetOrCreateCachedValue(
                 $"hostnames:{ipAddress}",
+                ReverseLookupCacheDuration,
                 () => ResolveHostnames(ipAddress).ToArray());
 
             return [.. cachedHostnames];
@@ -399,7 +404,10 @@ namespace NuciWeb.HTTP
             ];
         }
 
-        private static T GetOrCreateCachedValue<T>(string cacheKey, Func<T> valueFactory)
+        private static T GetOrCreateCachedValue<T>(
+            string cacheKey,
+            TimeSpan cacheDuration,
+            Func<T> valueFactory)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -413,7 +421,7 @@ namespace NuciWeb.HTTP
 
             if (value is not null)
             {
-                Cache[cacheKey] = new CacheEntry(value, now.Add(CacheDuration));
+                Cache[cacheKey] = new CacheEntry(value, now.Add(cacheDuration));
             }
 
             return value;

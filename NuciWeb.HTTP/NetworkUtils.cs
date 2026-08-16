@@ -23,6 +23,10 @@ namespace NuciWeb.HTTP
         private static readonly int PingTimeoutMilliseconds = 2000;
         private static readonly int TcpConnectionTimeoutMilliseconds = 2000;
         private static readonly int HttpProbeTimeoutMilliseconds = 3000;
+        private static readonly int HttpsPort = 443;
+        private static string PublicIpAddressCacheKey => "public-ip-address";
+        private static string HostnamesCacheKeyPrefix => "hostnames:";
+        private static string DefaultUserAgent => "InternetAccessCheck/1.0";
         private static readonly ConcurrentDictionary<string, CacheEntry> Cache = new();
 
         private static Func<string, int, CancellationToken, Task<IPStatus>> PingProbeAsync =
@@ -275,7 +279,7 @@ namespace NuciWeb.HTTP
         public static string GetPublicIpAddress()
         {
             return GetOrCreateCachedValue(
-                "public-ip-address",
+                PublicIpAddressCacheKey,
                 PublicIpAddressCacheDuration,
                 RetrievePublicIpAddress);
         }
@@ -291,7 +295,7 @@ namespace NuciWeb.HTTP
             ArgumentNullException.ThrowIfNull(ipAddress);
 
             string[] cachedHostnames = GetOrCreateCachedValue(
-                $"hostnames:{ipAddress}",
+                $"{HostnamesCacheKeyPrefix}{ipAddress}",
                 ReverseLookupCacheDuration,
                 () => ResolveHostnames(ipAddress).ToArray());
 
@@ -491,7 +495,7 @@ namespace NuciWeb.HTTP
 
                 try
                 {
-                    bool hasConnected = await TcpProbeAsync(host, 443, cancellationToken).ConfigureAwait(false);
+                    bool hasConnected = await TcpProbeAsync(host, HttpsPort, cancellationToken).ConfigureAwait(false);
 
                     if (hasConnected)
                     {
@@ -603,7 +607,7 @@ namespace NuciWeb.HTTP
                 Timeout = Timeout.InfiniteTimeSpan
             };
 
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("InternetAccessCheck/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(DefaultUserAgent);
 
             return client;
         }

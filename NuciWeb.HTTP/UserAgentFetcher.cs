@@ -16,6 +16,9 @@ namespace NuciWeb.HTTP
         private static string UserAgentSourceUrl =>
             "https://www.whatismybrowser.com/guides/the-latest-user-agent/firefox";
 
+        private static string UserAgentPattern =>
+            @"Mozilla\/[1-9]\.[0-9] \(.*; Linux.*x86_64.*?Firefox\/[\d.]+";
+
         private static Func<Task<string>> FetchHtmlAsync = RetrieveLatestUserAgentHtmlAsync;
 
         private string cachedValue = null!;
@@ -33,7 +36,7 @@ namespace NuciWeb.HTTP
 
             string html = await FetchHtmlAsync().ConfigureAwait(false);
 
-            Match match = Regex.Match(html, @"Mozilla\/[1-9]\.[0-9] \(.*; Linux.*x86_64.*?Firefox\/[\d.]+");
+            Match match = Regex.Match(html, UserAgentPattern);
 
             if (match.Success)
             {

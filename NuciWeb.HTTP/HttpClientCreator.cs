@@ -49,9 +49,8 @@ namespace NuciWeb.HTTP
         /// </summary>
         /// <returns>A configured <see cref="HttpClient"/> instance.</returns>
         public static HttpClient Create()
-            => CreateAsync()
-                .ConfigureAwait(false)
-                .GetAwaiter()
-                .GetResult();
+        {
+            return CreateAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
     }
 }

@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace NuciWeb.HTTP
 {
+    /// <summary>
+    /// Retrieves user-agent strings for Linux Firefox by scraping a web source and caching the result.
+    /// </summary>
     public sealed class UserAgentFetcher : IUserAgentFetcher
     {
         private static string FallbackUserAgent =>
@@ -13,10 +16,14 @@ namespace NuciWeb.HTTP
         private static string UserAgentSourceUrl =>
             "https://www.whatismybrowser.com/guides/the-latest-user-agent/firefox";
 
-        private static Func<Task<string>> fetchHtmlAsync = RetrieveLatestUserAgentHtmlAsync;
+        private static Func<Task<string>> FetchHtmlAsync = RetrieveLatestUserAgentHtmlAsync;
 
-        private string cachedValue = null;
+        private string cachedValue = null!;
 
+        /// <summary>
+        /// Retrieves a user-agent string, using a cached value if available.
+        /// </summary>
+        /// <returns>A user-agent string for Linux Firefox.</returns>
         public async Task<string> GetUserAgent()
         {
             if (!string.IsNullOrWhiteSpace(cachedValue))
@@ -24,7 +31,7 @@ namespace NuciWeb.HTTP
                 return cachedValue;
             }
 
-            string html = await fetchHtmlAsync();
+            string html = await FetchHtmlAsync().ConfigureAwait(false);
 
             Match match = Regex.Match(html, @"Mozilla\/[1-9]\.[0-9] \(.*; Linux.*x86_64.*?Firefox\/[\d.]+");
 
@@ -42,7 +49,7 @@ namespace NuciWeb.HTTP
         {
             using HttpClient client = new();
 
-            return await client.GetStringAsync(UserAgentSourceUrl);
+            return await client.GetStringAsync(UserAgentSourceUrl).ConfigureAwait(false);
         }
     }
 }

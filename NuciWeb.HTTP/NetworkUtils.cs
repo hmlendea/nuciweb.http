@@ -12,20 +12,26 @@ using NuciExtensions;
 
 namespace NuciWeb.HTTP
 {
+    /// <summary>
+    /// Provides utilities for checking internet connectivity, retrieving public IP addresses, and performing reverse DNS lookups.
+    /// </summary>
     public static class NetworkUtils
     {
         private static readonly HttpClient HttpClient = CreateHttpClient();
         private static readonly TimeSpan ReverseLookupCacheDuration = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan PublicIpAddressCacheDuration = TimeSpan.FromMinutes(2);
+        private static readonly int PingTimeoutMilliseconds = 2000;
+        private static readonly int TcpConnectionTimeoutMilliseconds = 2000;
+        private static readonly int HttpProbeTimeoutMilliseconds = 3000;
         private static readonly ConcurrentDictionary<string, CacheEntry> Cache = new();
 
-        private static Func<string, int, CancellationToken, Task<IPStatus>> pingProbeAsync =
+        private static Func<string, int, CancellationToken, Task<IPStatus>> PingProbeAsync =
             SendPingProbeAsync;
 
-        private static Func<string, int, CancellationToken, Task<bool>> tcpProbeAsync =
+        private static Func<string, int, CancellationToken, Task<bool>> TcpProbeAsync =
             SendTcpProbeAsync;
 
-        private static Func<string, CancellationToken, Task<HttpStatusCode>> httpProbeAsync =
+        private static Func<string, CancellationToken, Task<HttpStatusCode>> HttpProbeAsync =
             SendHttpProbeAsync;
 
         private static readonly List<string> PingHosts =
@@ -225,7 +231,10 @@ namespace NuciWeb.HTTP
         /// </summary>
         /// <returns>Returns true if internet access is available, otherwise false.</returns>
         public static bool HasInternetAccess()
-            => HasInternetAccessAsync().GetAwaiter().GetResult();
+            => HasInternetAccessAsync()
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
 
         /// <summary>
         /// Checks if the system has internet access asynchronously.
@@ -264,10 +273,12 @@ namespace NuciWeb.HTTP
         /// <returns>The public IP address as a string.</returns>
         /// <exception cref="InvalidOperationException">Thrown if no internet access is available.</exception>
         public static string GetPublicIpAddress()
-            => GetOrCreateCachedValue(
+        {
+            return GetOrCreateCachedValue(
                 "public-ip-address",
                 PublicIpAddressCacheDuration,
                 RetrievePublicIpAddress);
+        }
 
         /// <summary>
         /// Gets the known hostnames associated with the specified IP address using reverse DNS lookup.
@@ -308,7 +319,9 @@ namespace NuciWeb.HTTP
         /// </summary>
         /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
         public static void WaitForInternetAccess()
-            => WaitForInternetAccess(TimeSpan.FromSeconds(30));
+        {
+            WaitForInternetAccess(TimeSpan.FromSeconds(30));
+        }
 
         /// <summary>
         /// Waits for internet access to be available.
@@ -317,11 +330,11 @@ namespace NuciWeb.HTTP
         /// <exception cref="TimeoutException">Thrown if internet access is not available within the specified timeout.</exception>
         public static void WaitForInternetAccess(TimeSpan timeout)
         {
-            DateTime beginningDT = DateTime.Now;
+            DateTime beginningTime = DateTime.Now;
 
-            while (DateTime.Now < beginningDT + timeout)
+            while (DateTime.Now < beginningTime + timeout)
             {
-                if (HasInternetAccess())
+                if (HasInternetAccessAsync().GetAwaiter().GetResult())
                 {
                     return;
                 }
@@ -334,7 +347,7 @@ namespace NuciWeb.HTTP
 
         private static string RetrievePublicIpAddress()
         {
-            if (!HasInternetAccess())
+            if (!HasInternetAccessAsync().GetAwaiter().GetResult())
             {
                 throw new InvalidOperationException("No internet access available.");
             }
@@ -350,14 +363,14 @@ namespace NuciWeb.HTTP
                         .GetAwaiter()
                         .GetResult();
 
-                    if (TryNormalizePublicIpAddress(response, out string publicIpAddress))
+                    if (TryNormalisePublicIpAddress(response, out string publicIpAddress))
                     {
                         return publicIpAddress;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception exception)
                 {
-                    errors.Add(ex);
+                    errors.Add(exception);
                 }
             }
 
@@ -366,7 +379,7 @@ namespace NuciWeb.HTTP
                 new AggregateException(errors));
         }
 
-        private static bool TryNormalizePublicIpAddress(string response, out string publicIpAddress)
+        private static bool TryNormalisePublicIpAddress(string response, out string publicIpAddress)
         {
             publicIpAddress = string.Empty;
 
@@ -447,7 +460,7 @@ namespace NuciWeb.HTTP
 
                 try
                 {
-                    IPStatus replyStatus = await pingProbeAsync(host, 2000, cancellationToken).ConfigureAwait(false);
+                    IPStatus replyStatus = await PingProbeAsync(host, PingTimeoutMilliseconds, cancellationToken).ConfigureAwait(false);
 
                     if (replyStatus.Equals(IPStatus.Success))
                     {
@@ -478,9 +491,40 @@ namespace NuciWeb.HTTP
 
                 try
                 {
-                    bool hasConnected = await tcpProbeAsync(host, 443, cancellationToken).ConfigureAwait(false);
+                    bool hasConnected = await TcpProbeAsync(host, 443, cancellationToken).ConfigureAwait(false);
 
                     if (hasConnected)
+                    {
+                        return true;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
+        {
+            foreach (string url in HttpUrls.Shuffle())
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    HttpStatusCode responseStatusCode = await HttpProbeAsync(url, cancellationToken).ConfigureAwait(false);
+
+                    if ((int)responseStatusCode >= 200 && (int)responseStatusCode < 500)
                     {
                         return true;
                     }
@@ -522,42 +566,11 @@ namespace NuciWeb.HTTP
             using CancellationTokenSource cancellationTokenSource =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(2000));
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(TcpConnectionTimeoutMilliseconds));
 
             await client.ConnectAsync(host, port, cancellationTokenSource.Token).ConfigureAwait(false);
 
             return client.Connected;
-        }
-
-        private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
-        {
-            foreach (string url in HttpUrls.Shuffle())
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return false;
-                }
-
-                try
-                {
-                    HttpStatusCode responseStatusCode = await httpProbeAsync(url, cancellationToken).ConfigureAwait(false);
-
-                    if ((int)responseStatusCode >= 200 && (int)responseStatusCode < 500)
-                    {
-                        return true;
-                    }
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    return false;
-                }
-                catch
-                {
-                    // Ignore
-                }
-            }
-
-            return false;
         }
 
         private static async Task<HttpStatusCode> SendHttpProbeAsync(
@@ -568,7 +581,7 @@ namespace NuciWeb.HTTP
             using CancellationTokenSource cancellationTokenSource =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(3000));
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(HttpProbeTimeoutMilliseconds));
 
             using HttpResponseMessage response = await HttpClient.SendAsync(
                 request,

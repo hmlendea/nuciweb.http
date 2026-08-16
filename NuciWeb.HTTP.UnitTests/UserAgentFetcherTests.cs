@@ -132,14 +132,14 @@ public class UserAgentFetcherTests
 
     private static Func<Task<string>> GetFetchHtmlAsync()
     {
-        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("fetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("FetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         return (Func<Task<string>>)fieldInfo.GetValue(null)!;
     }
 
     private static void SetFetchHtmlAsync(Func<Task<string>> fetchHtmlAsync)
     {
-        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("fetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("FetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
         fieldInfo.SetValue(null, fetchHtmlAsync);
     }
 }

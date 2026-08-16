@@ -103,31 +103,34 @@ public class HttpClientCreatorTests
         string expectedUserAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:153.0) Gecko/20100101 Firefox/153.0";
         SetFetchHtmlAsync(() => Task.FromResult($"<html><body>{expectedUserAgent}</body></html>"));
 
-        HttpClient client = HttpClientCreator.Create();
+        HttpClient client = HttpClientCreator.CreateAsync().Result;
 
         Assert.That(client.DefaultRequestHeaders.UserAgent.ToString(), Is.EqualTo(expectedUserAgent));
     }
 
     [Test]
-    public void GivenDefaultCreate_WhenFetcherThrows_ThenThrowsAggregateException()
+    public void GivenDefaultCreate_WhenFetcherThrows_ThenThrowsException()
     {
         SetFetchHtmlAsync(() => throw new InvalidOperationException("forced sync failure"));
 
-        AggregateException exception = Assert.Throws<AggregateException>(() => HttpClientCreator.Create())!;
+        Exception thrown = Assert.Throws<AggregateException>(() =>
+        {
+            _ = HttpClientCreator.CreateAsync().Result;
+        })!;
 
-        Assert.That(exception.InnerException, Is.TypeOf<InvalidOperationException>());
+        Assert.That(thrown.InnerException, Is.TypeOf<InvalidOperationException>());
     }
 
     private static Func<Task<string>> GetFetchHtmlAsync()
     {
-        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("fetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("FetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         return (Func<Task<string>>)fieldInfo.GetValue(null)!;
     }
 
     private static void SetFetchHtmlAsync(Func<Task<string>> fetchHtmlAsync)
     {
-        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("fetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo fieldInfo = typeof(UserAgentFetcher).GetField("FetchHtmlAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
         fieldInfo.SetValue(null, fetchHtmlAsync);
     }
 }

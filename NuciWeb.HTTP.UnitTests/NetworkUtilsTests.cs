@@ -33,9 +33,9 @@ public class NetworkUtilsTests
         originalTcpHosts = [.. GetMutableStringList("TcpHosts")];
         originalHttpUrls = [.. GetMutableStringList("HttpUrls")];
         originalPublicIpSources = [.. GetMutableStringList("PublicIpSources")];
-        originalPingProbeAsync = GetProbeDelegate<Func<string, int, CancellationToken, Task<IPStatus>>>("pingProbeAsync");
-        originalTcpProbeAsync = GetProbeDelegate<Func<string, int, CancellationToken, Task<bool>>>("tcpProbeAsync");
-        originalHttpProbeAsync = GetProbeDelegate<Func<string, CancellationToken, Task<HttpStatusCode>>>("httpProbeAsync");
+        originalPingProbeAsync = GetProbeDelegate<Func<string, int, CancellationToken, Task<IPStatus>>>("PingProbeAsync");
+        originalTcpProbeAsync = GetProbeDelegate<Func<string, int, CancellationToken, Task<bool>>>("TcpProbeAsync");
+        originalHttpProbeAsync = GetProbeDelegate<Func<string, CancellationToken, Task<HttpStatusCode>>>("HttpProbeAsync");
 
         ClearNetworkUtilsCache();
     }
@@ -47,9 +47,9 @@ public class NetworkUtilsTests
         RestoreMutableStringList("TcpHosts", originalTcpHosts);
         RestoreMutableStringList("HttpUrls", originalHttpUrls);
         RestoreMutableStringList("PublicIpSources", originalPublicIpSources);
-        SetProbeDelegate("pingProbeAsync", originalPingProbeAsync);
-        SetProbeDelegate("tcpProbeAsync", originalTcpProbeAsync);
-        SetProbeDelegate("httpProbeAsync", originalHttpProbeAsync);
+        SetProbeDelegate("PingProbeAsync", originalPingProbeAsync);
+        SetProbeDelegate("TcpProbeAsync", originalTcpProbeAsync);
+        SetProbeDelegate("HttpProbeAsync", originalHttpProbeAsync);
 
         ClearNetworkUtilsCache();
     }
@@ -246,7 +246,7 @@ public class NetworkUtilsTests
     {
         RestoreMutableStringList("HttpUrls", ["http://unused-host"]);
         SetProbeDelegate(
-            "httpProbeAsync",
+            "HttpProbeAsync",
             (Func<string, CancellationToken, Task<HttpStatusCode>>)((url, cancellationToken) =>
                 Task.FromResult(HttpStatusCode.Continue)));
 
@@ -302,7 +302,7 @@ public class NetworkUtilsTests
         RestoreMutableStringList("TcpHosts", []);
         RestoreMutableStringList("HttpUrls", []);
 
-        bool hasInternetAccess = NetworkUtils.HasInternetAccess();
+        bool hasInternetAccess = NetworkUtils.HasInternetAccessAsync().Result;
 
         Assert.That(hasInternetAccess, Is.False);
     }
@@ -327,7 +327,7 @@ public class NetworkUtilsTests
     [TestCase("203.0.113.7\r\n", "203.0.113.7")]
     public void GivenValidPublicIpResponse_WhenNormalising_ThenReturnsTrue(string response, string expectedIpAddress)
     {
-        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalizePublicIpAddress", PrivateStaticBindingFlags)!;
+        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalisePublicIpAddress", PrivateStaticBindingFlags)!;
         object?[] parameters = [response, null];
 
         bool isValid = (bool)method.Invoke(null, parameters)!;
@@ -349,7 +349,7 @@ public class NetworkUtilsTests
     [TestCase("127.0.0.1:443")]
     public void GivenInvalidPublicIpResponse_WhenNormalising_ThenReturnsFalse(string response)
     {
-        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalizePublicIpAddress", PrivateStaticBindingFlags)!;
+        MethodInfo method = typeof(NetworkUtils).GetMethod("TryNormalisePublicIpAddress", PrivateStaticBindingFlags)!;
         object?[] parameters = [response, null];
 
         bool isValid = (bool)method.Invoke(null, parameters)!;
@@ -542,7 +542,7 @@ public class NetworkUtilsTests
     {
         RestoreMutableStringList("PingHosts", ["unused-host"]);
         SetProbeDelegate(
-            "pingProbeAsync",
+            "PingProbeAsync",
             async (string host, int timeoutMilliseconds, CancellationToken cancellationToken) =>
             {
                 await Task.Delay(1, cancellationToken);
@@ -559,7 +559,7 @@ public class NetworkUtilsTests
     {
         RestoreMutableStringList("PingHosts", ["unused-host"]);
         SetProbeDelegate(
-            "pingProbeAsync",
+            "PingProbeAsync",
             (Func<string, int, CancellationToken, Task<IPStatus>>)((host, timeoutMilliseconds, cancellationToken) =>
                 throw new SocketException()));
 
@@ -606,7 +606,7 @@ public class NetworkUtilsTests
     {
         RestoreMutableStringList("TcpHosts", ["unused-host"]);
         SetProbeDelegate(
-            "tcpProbeAsync",
+            "TcpProbeAsync",
             (Func<string, int, CancellationToken, Task<bool>>)((host, port, cancellationToken) =>
                 Task.FromResult(false)));
 
@@ -620,7 +620,7 @@ public class NetworkUtilsTests
     {
         RestoreMutableStringList("TcpHosts", ["unused-host"]);
         SetProbeDelegate(
-            "tcpProbeAsync",
+            "TcpProbeAsync",
             (Func<string, int, CancellationToken, Task<bool>>)((host, port, cancellationToken) =>
             {
                 throw new OperationCanceledException("forced", cancellationToken);

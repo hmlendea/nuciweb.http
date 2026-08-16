@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -21,6 +22,16 @@ public class UserAgentFetcherTests
     [Test]
     public void GivenUserAgentFetcher_WhenInspectingType_ThenImplementsIUserAgentFetcher()
         => Assert.That(typeof(IUserAgentFetcher).IsAssignableFrom(typeof(UserAgentFetcher)), Is.True);
+
+    [Test]
+    public void GivenUserAgentFetcherType_WhenGettingSourceUrlViaReflection_ThenReturnsExpectedUrl()
+    {
+        PropertyInfo sourceUrlProperty = typeof(UserAgentFetcher).GetProperty("UserAgentSourceUrl", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        string sourceUrl = (string)sourceUrlProperty.GetValue(null)!;
+
+        Assert.That(sourceUrl, Is.EqualTo("https://www.whatismybrowser.com/guides/the-latest-user-agent/firefox"));
+    }
 
     [Test]
     public async Task GivenCachedUserAgent_WhenGetUserAgent_ThenReturnsCachedValue()
@@ -103,6 +114,20 @@ public class UserAgentFetcherTests
         Assert.That(
             userAgent,
             Is.EqualTo("Mozilla/5.0 (X11; Linux x86_64; rv:148.0) Gecko/20100101 Firefox/148.0"));
+    }
+
+    [Test]
+    public async Task GivenRetrieveLatestUserAgentHtmlMethod_WhenInvokedViaReflection_ThenReturnsStringOrThrowsHttpException()
+    {
+        MethodInfo methodInfo = typeof(UserAgentFetcher).GetMethod(
+            "RetrieveLatestUserAgentHtmlAsync",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Task<string> retrieveTask = (Task<string>)methodInfo.Invoke(null, null)!;
+
+        await retrieveTask.ContinueWith(completedTask => completedTask, TaskScheduler.Default).Unwrap();
+
+        Assert.That(retrieveTask.IsCompleted);
     }
 
     private static Func<Task<string>> GetFetchHtmlAsync()

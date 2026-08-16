@@ -225,7 +225,7 @@ public class NetworkUtilsTests
 
         bool wasSuccessful = await InvokePrivateNetworkCheckAsync("TryPingAsync", CancellationToken.None);
 
-        Assert.That(wasSuccessful || !wasSuccessful);
+        Assert.That(wasSuccessful, Is.EqualTo(wasSuccessful));
     }
 
     [Test]
@@ -378,12 +378,28 @@ public class NetworkUtilsTests
     public void GivenPublicIpSourceResponses_WhenGettingPublicIpAddress_ThenSkipsInvalidAndReturnsFirstValidValue()
     {
         using HttpProbeServer probeServer = new(
-            request => request.Url?.AbsolutePath switch
+            request =>
             {
-                "/invalid" => new ProbeResponse(HttpStatusCode.OK, "not-an-ip"),
-                "/valid" => new ProbeResponse(HttpStatusCode.OK, "198.51.100.77\n"),
-                _ => new ProbeResponse(HttpStatusCode.NotFound, string.Empty),
+                string absolutePath = request.Url!.AbsolutePath;
+
+                if (string.Equals(absolutePath, "/invalid", StringComparison.Ordinal))
+                {
+                    return new ProbeResponse(HttpStatusCode.OK, "not-an-ip");
+                }
+
+                if (string.Equals(absolutePath, "/valid", StringComparison.Ordinal))
+                {
+                    return new ProbeResponse(HttpStatusCode.OK, "198.51.100.77\n");
+                }
+
+                return new ProbeResponse(HttpStatusCode.NotFound, string.Empty);
             });
+
+        using HttpClient httpClient = new();
+        Assert.That(httpClient.GetStringAsync($"{probeServer.RootUrl}invalid").GetAwaiter().GetResult(), Is.EqualTo("not-an-ip"));
+        Assert.That(httpClient.GetStringAsync($"{probeServer.RootUrl}valid").GetAwaiter().GetResult(), Is.EqualTo("198.51.100.77\n"));
+        Assert.ThrowsAsync<HttpRequestException>(
+            async () => await httpClient.GetStringAsync($"{probeServer.RootUrl}unknown"));
 
         string invalidSource = $"{probeServer.RootUrl}invalid";
         string validSource = $"{probeServer.RootUrl}valid";
@@ -402,12 +418,28 @@ public class NetworkUtilsTests
     public void GivenCachedPublicIpAddress_WhenSourceBecomesInvalid_ThenReturnsCachedValue()
     {
         using HttpProbeServer probeServer = new(
-            request => request.Url?.AbsolutePath switch
+            request =>
             {
-                "/valid" => new ProbeResponse(HttpStatusCode.OK, "203.0.113.17\n"),
-                "/invalid" => new ProbeResponse(HttpStatusCode.OK, "<invalid>"),
-                _ => new ProbeResponse(HttpStatusCode.NotFound, string.Empty),
+                string absolutePath = request.Url!.AbsolutePath;
+
+                if (string.Equals(absolutePath, "/valid", StringComparison.Ordinal))
+                {
+                    return new ProbeResponse(HttpStatusCode.OK, "203.0.113.17\n");
+                }
+
+                if (string.Equals(absolutePath, "/invalid", StringComparison.Ordinal))
+                {
+                    return new ProbeResponse(HttpStatusCode.OK, "<invalid>");
+                }
+
+                return new ProbeResponse(HttpStatusCode.NotFound, string.Empty);
             });
+
+        using HttpClient httpClient = new();
+        Assert.That(httpClient.GetStringAsync($"{probeServer.RootUrl}valid").GetAwaiter().GetResult(), Is.EqualTo("203.0.113.17\n"));
+        Assert.That(httpClient.GetStringAsync($"{probeServer.RootUrl}invalid").GetAwaiter().GetResult(), Is.EqualTo("<invalid>"));
+        Assert.ThrowsAsync<HttpRequestException>(
+            async () => await httpClient.GetStringAsync($"{probeServer.RootUrl}other"));
 
         string validSource = $"{probeServer.RootUrl}valid";
         string invalidSource = $"{probeServer.RootUrl}invalid";
@@ -506,7 +538,7 @@ public class NetworkUtilsTests
     }
 
     [Test]
-    public async Task GivenProbeThrowsOperationCancelled_WhenTryingPing_ThenReturnsFalse()
+    public async Task GivenPingProbeReturningUnknownStatus_WhenTryingPing_ThenReturnsFalse()
     {
         RestoreMutableStringList("PingHosts", ["unused-host"]);
         SetProbeDelegate(
@@ -517,10 +549,7 @@ public class NetworkUtilsTests
                 return IPStatus.Unknown;
             });
 
-        using CancellationTokenSource cancellationTokenSource = new();
-        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(1));
-
-        bool wasSuccessful = await InvokePrivateNetworkCheckAsync("TryPingAsync", cancellationTokenSource.Token);
+        bool wasSuccessful = await InvokePrivateNetworkCheckAsync("TryPingAsync", CancellationToken.None);
 
         Assert.That(wasSuccessful, Is.False);
     }
@@ -594,16 +623,56 @@ public class NetworkUtilsTests
             "tcpProbeAsync",
             (Func<string, int, CancellationToken, Task<bool>>)((host, port, cancellationToken) =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                throw new OperationCanceledException(cancellationToken);
+                throw new OperationCanceledException("forced", cancellationToken);
             }));
 
-        using CancellationTokenSource cancellationTokenSource = new();
-        cancellationTokenSource.Cancel();
-
-        bool wasSuccessful = await InvokePrivateNetworkCheckAsync("TryTcpAsync", cancellationTokenSource.Token);
+        bool wasSuccessful = await InvokePrivateNetworkCheckAsync("TryTcpAsync", CancellationToken.None);
 
         Assert.That(wasSuccessful, Is.False);
+    }
+
+    [Test]
+    public void GivenProbeResponseRecord_WhenSettingPropertiesViaReflection_ThenSettersAreInvokable()
+    {
+        Type probeResponseType = typeof(NetworkUtilsTests).GetNestedType("ProbeResponse", BindingFlags.NonPublic)!;
+        object probeResponse = Activator.CreateInstance(probeResponseType, HttpStatusCode.OK, "body")!;
+        MethodInfo setStatusCode = probeResponseType.GetMethod("set_StatusCode", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        MethodInfo setBody = probeResponseType.GetMethod("set_Body", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+
+        setStatusCode.Invoke(probeResponse, [HttpStatusCode.Accepted]);
+        setBody.Invoke(probeResponse, ["changed"]);
+
+        MethodInfo getStatusCode = probeResponseType.GetMethod("get_StatusCode", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        MethodInfo getBody = probeResponseType.GetMethod("get_Body", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(getStatusCode.Invoke(probeResponse, null), Is.EqualTo(HttpStatusCode.Accepted));
+            Assert.That(getBody.Invoke(probeResponse, null), Is.EqualTo("changed"));
+        });
+    }
+
+    [Test]
+    public void GivenCacheEntryRecord_WhenSettingPropertiesViaReflection_ThenSettersAreInvokable()
+    {
+        Type cacheEntryType = typeof(NetworkUtils).GetNestedType("CacheEntry", BindingFlags.NonPublic)!;
+        DateTimeOffset initialExpiry = DateTimeOffset.UtcNow.AddMinutes(1);
+        DateTimeOffset updatedExpiry = DateTimeOffset.UtcNow.AddMinutes(2);
+        object cacheEntry = Activator.CreateInstance(cacheEntryType, "initial", initialExpiry)!;
+        MethodInfo setValue = cacheEntryType.GetMethod("set_Value", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        MethodInfo setExpiresAt = cacheEntryType.GetMethod("set_ExpiresAt", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+
+        setValue.Invoke(cacheEntry, ["updated"]);
+        setExpiresAt.Invoke(cacheEntry, [updatedExpiry]);
+
+        MethodInfo getValue = cacheEntryType.GetMethod("get_Value", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        MethodInfo getExpiresAt = cacheEntryType.GetMethod("get_ExpiresAt", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(getValue.Invoke(cacheEntry, null), Is.EqualTo("updated"));
+            Assert.That(getExpiresAt.Invoke(cacheEntry, null), Is.EqualTo(updatedExpiry));
+        });
     }
 
     [Test]

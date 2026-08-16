@@ -19,6 +19,15 @@ namespace NuciWeb.HTTP
         private static readonly TimeSpan PublicIpAddressCacheDuration = TimeSpan.FromMinutes(2);
         private static readonly ConcurrentDictionary<string, CacheEntry> Cache = new();
 
+        private static Func<string, int, CancellationToken, Task<IPStatus>> pingProbeAsync =
+            SendPingProbeAsync;
+
+        private static Func<string, int, CancellationToken, Task<bool>> tcpProbeAsync =
+            SendTcpProbeAsync;
+
+        private static Func<string, CancellationToken, Task<HttpStatusCode>> httpProbeAsync =
+            SendHttpProbeAsync;
+
         private static readonly List<string> PingHosts =
         [
             "1.1.1.1",
@@ -429,46 +438,30 @@ namespace NuciWeb.HTTP
 
         private static async Task<bool> TryPingAsync(CancellationToken cancellationToken)
         {
-            try
+            foreach (string host in PingHosts.Shuffle())
             {
-                using Ping ping = new();
-
-                foreach (string host in PingHosts.Shuffle())
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        return false;
-                    }
+                    return false;
+                }
 
-                    try
-                    {
-                        PingReply reply = await ping
-                            .SendPingAsync(host, 2000)
-                            .WaitAsync(cancellationToken)
-                            .ConfigureAwait(false);
+                try
+                {
+                    IPStatus replyStatus = await pingProbeAsync(host, 2000, cancellationToken).ConfigureAwait(false);
 
-                        if (reply.Status.Equals(IPStatus.Success))
-                        {
-                            return true;
-                        }
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    if (replyStatus.Equals(IPStatus.Success))
                     {
-                        return false;
-                    }
-                    catch
-                    {
-                        // Ignore
+                        return true;
                     }
                 }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                return false;
-            }
-            catch
-            {
-                // Ignore
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+                catch
+                {
+                    // Ignore
+                }
             }
 
             return false;
@@ -485,15 +478,9 @@ namespace NuciWeb.HTTP
 
                 try
                 {
-                    using TcpClient client = new();
-                    using CancellationTokenSource cts =
-                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    bool hasConnected = await tcpProbeAsync(host, 443, cancellationToken).ConfigureAwait(false);
 
-                    cts.CancelAfter(TimeSpan.FromMilliseconds(2000));
-
-                    await client.ConnectAsync(host, 443, cts.Token).ConfigureAwait(false);
-
-                    if (client.Connected)
+                    if (hasConnected)
                     {
                         return true;
                     }
@@ -511,6 +498,37 @@ namespace NuciWeb.HTTP
             return false;
         }
 
+        private static async Task<IPStatus> SendPingProbeAsync(
+            string host,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            using Ping ping = new();
+
+            PingReply reply = await ping
+                .SendPingAsync(host, timeoutMilliseconds)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            return reply.Status;
+        }
+
+        private static async Task<bool> SendTcpProbeAsync(
+            string host,
+            int port,
+            CancellationToken cancellationToken)
+        {
+            using TcpClient client = new();
+            using CancellationTokenSource cancellationTokenSource =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(2000));
+
+            await client.ConnectAsync(host, port, cancellationTokenSource.Token).ConfigureAwait(false);
+
+            return client.Connected;
+        }
+
         private static async Task<bool> TryHttpAsync(CancellationToken cancellationToken)
         {
             foreach (string url in HttpUrls.Shuffle())
@@ -522,19 +540,9 @@ namespace NuciWeb.HTTP
 
                 try
                 {
-                    using HttpRequestMessage request = new(HttpMethod.Head, url);
-                    using CancellationTokenSource cts =
-                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    HttpStatusCode responseStatusCode = await httpProbeAsync(url, cancellationToken).ConfigureAwait(false);
 
-                    cts.CancelAfter(TimeSpan.FromMilliseconds(3000));
-
-                    using HttpResponseMessage response =
-                        await HttpClient.SendAsync(
-                            request,
-                            HttpCompletionOption.ResponseHeadersRead,
-                            cts.Token).ConfigureAwait(false);
-
-                    if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 500)
+                    if ((int)responseStatusCode >= 200 && (int)responseStatusCode < 500)
                     {
                         return true;
                     }
@@ -550,6 +558,24 @@ namespace NuciWeb.HTTP
             }
 
             return false;
+        }
+
+        private static async Task<HttpStatusCode> SendHttpProbeAsync(
+            string url,
+            CancellationToken cancellationToken)
+        {
+            using HttpRequestMessage request = new(HttpMethod.Head, url);
+            using CancellationTokenSource cancellationTokenSource =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(3000));
+
+            using HttpResponseMessage response = await HttpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationTokenSource.Token).ConfigureAwait(false);
+
+            return response.StatusCode;
         }
 
         private static HttpClient CreateHttpClient()

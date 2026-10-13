@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>NuciWeb.HTTP</RootNamespace>
-    <Version>1.7.2</Version>
+    <Version>1.7.3</Version>
     <Description>HttpClient wrapper</Description>
     <Authors>Horațiu Mlendea</Authors>
     <Copyright>Copyright 2026 © Horațiu Mlendea</Copyright>
@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NuciExtensions" Version="5.3.1" />
+    <PackageReference Include="NuciExtensions" Version="6.0.0" />
   </ItemGroup>
 
 </Project>

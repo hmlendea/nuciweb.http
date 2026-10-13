@@ -87,14 +87,15 @@ public class HttpClientCreatorTests
     }
 
     [Test]
-    public void GivenDefaultCreateAsync_WhenFetcherThrows_ThenPropagatesException()
+    public async Task GivenDefaultCreateAsync_WhenFetcherThrows_ThenPropagatesException()
     {
         SetFetchHtmlAsync(() => throw new InvalidOperationException("forced async failure"));
 
-        InvalidOperationException exception = Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await HttpClientCreator.CreateAsync())!;
+        InvalidOperationException? exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await HttpClientCreator.CreateAsync());
 
-        Assert.That(exception.Message, Is.EqualTo("forced async failure"));
+        Assert.That(exception, Is.Not.Null);
+        Assert.That(exception!.Message, Is.EqualTo("forced async failure"));
     }
 
     [Test]

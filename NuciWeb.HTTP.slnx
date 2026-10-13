@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NuciWeb.HTTP/NuciWeb.HTTP.csproj" />
+  <Project Path="NuciWeb.HTTP.UnitTests/NuciWeb.HTTP.UnitTests.csproj" />
+</Solution>

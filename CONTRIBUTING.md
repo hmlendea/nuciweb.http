@@ -4,7 +4,7 @@ Thank you for your interest in contributing to NuciWeb.HTTP! This document outli
 
 ## 📑 Table of Contents
 
-- [Code of Conduct](#-code-of-conduct)
+- [Code of Conduct](#code-of-conduct)
 - [Getting Started](#-getting-started)
 - [Development Workflow](#-development-workflow)
 - [Code Standards](#-code-standards)
@@ -13,9 +13,9 @@ Thank you for your interest in contributing to NuciWeb.HTTP! This document outli
 - [Issue Reporting](#-issue-reporting)
 - [License](#-license)
 
-## 🤝 Code of Conduct
+## 📋 Code of Conduct
 
-By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md). Please report unacceptable behavior to the maintainers.
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## 🚀 Getting Started
 

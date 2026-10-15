@@ -239,6 +239,10 @@ The solution separates the distributable library from its NUnit unit tests.
 
 See the [architecture documentation](./ARCHITECTURE.md) for the system context, principal components, runtime flows, ownership boundaries, dependencies, constraints, and extension points.
 
+## 📜 Code of Conduct
+
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## 🤝 Contributing
 
 You are welcome to submit any suggestion, feedback, or modification to this project.
